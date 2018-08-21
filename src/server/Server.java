@@ -1,134 +1,159 @@
 package server;
 
-import java.net.ServerSocket;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.net.Socket;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
 
-import javax.net.ServerSocketFactory;
+public class Server extends Thread {
+	private Socket connectionClient;
+	private String nameClient;
+	private BufferedReader input;
+	private PrintStream output;
+	private String text;
 
-public class Server {
-	private int port;
-	private ServerSocket serverSocket;
-	private static Set<ServerClientManagement> NAME_CONNECTED_CLIENTS = new LinkedHashSet<ServerClientManagement>();
+	private static Map<String, PrintStream> CONNECTED_CLIENTS = new HashMap<String, PrintStream>();
+	private static Set<String> NAME_CONNECTED_CLIENTS = new LinkedHashSet<String>();
 
-	public Server(int port) {
-		this.port = port;
+	public Server(Socket socket) {
+		this.connectionClient = socket;
+
+	}
+
+	@Override
+	public void run() {
 		try {
-			this.serverSocket = ServerSocketFactory.getDefault().createServerSocket(this.port);
-			System.out.println("S - Aguardando conexao (P:" + this.port + ")...");
+			this.input = new BufferedReader(new InputStreamReader(this.connectionClient.getInputStream()));
+			this.output = new PrintStream(this.connectionClient.getOutputStream());
+
+			this.nameClient = input.readLine().toUpperCase();
+			if (clientIsConnect(this.nameClient)) {
+				this.output.println(Response.ERROR_NAME_IN_USE.getValue());
+				closeClientConnection();
+			}
+			// Add new connected client
+			NAME_CONNECTED_CLIENTS.add(this.nameClient);
+			CONNECTED_CLIENTS.put(this.nameClient, this.output);
+			this.output.println(Response.CONNECTED_SUCCESS.getValue());
+
+			while (true) {
+				this.text = input.readLine();
+				checkCommand();
+			}
+
 		} catch (Exception e) {
-			System.out.println("S - O seguinte problema ocorreu : " + e.toString());
-		}
-
-	}
-
-	public void connect() {
-		while (true) {
-			acceptsNewClientConnection();
+			System.out.println("S - O seguinte problema ocorreu : \n" + e.toString());
 		}
 	}
 
-	public void acceptsNewClientConnection() {
-		try {
-			Socket clientConection = this.serverSocket.accept();
-			ServerClientManagement serverClient = new ServerClientManagement(clientConection, this);
-			serverClient.start();
-		} catch (Exception e) {
-			System.out.println("S - O seguinte problema ocorreu : " + e.toString());
-		}
-	}
-
-	public void checkCommand(ServerClientManagement serverClient, String text) {
+	public void checkCommand() {
 		String[] split = text.split(":", 2);
+		String message = "";
+
+		if (split.length == 0) {
+			this.output.println(Response.UNKNOWN_COMMAND.getValue());
+			return;
+		}
+
 		String requestedCommand = split[0];
-		String message = split[1];
+		if (split.length >= 2) {
+			message = split[1];
+		}
 
 		Command command = Command.getCommand(requestedCommand);
+		if (command == null) {
+			this.output.println(Response.UNKNOWN_COMMAND.getValue());
+			return;
+		}
 		switch (command) {
-			case CONNECT: {
-				System.out.println("conectado " + message);
-				break;
+		case CONNECT: {
+			System.out.println("conectado " + message);
+			break;
+		}
+		case DIRECT_MESSAGE: {
+			split = message.split(":", 2);
+			if (split.length == 0) {
+				this.output.println(Response.NOT_INFORMED_USER_TO_SEND_MESSAGE.getValue());
+				return;
+			} else if (split.length == 1) {
+				this.output.println(Response.NOT_INFORMED_MESSAGE.getValue());
+				return;
 			}
-			case DIRECT_MESSAGE: {
-				split = message.split(":", 2);
-				String clientToSend = split[0];
-				message = split[1];
-				sendDirect(serverClient, clientToSend, message);
-				break;
+			String clientToSend = split[0].toUpperCase();
+			message = split[1];
+			if (!clientIsConnect(clientToSend)) {
+				this.output.println(Response.NOT_FOUND_CONNECTED_USER.getValue());
+				return;
 			}
-			case MESSAGE_FOR_ALL: {
-				sendToAll(serverClient, message);
-				break;
+			sendDirect(clientToSend, message);
+			break;
+		}
+		case MESSAGE_FOR_ALL: {
+			if (message.equals("") || split.length == 1) {
+				this.output.println(Response.NOT_INFORMED_MESSAGE.getValue());
+				return;
 			}
-			case DISCONNECT: {
-				serverClient.CloseConnection();
-				break;
-			}
-			case LIST_ALL_CONNECTED: {
-				showConnectedClients(serverClient);
-				break;
-			}
-			default:
-				serverClient.getOutput().println(Response.UNKNOWN_COMMAND.getValue());
+			sendToAll(message);
+			break;
+		}
+		case DISCONNECT: {
+			closeClientConnection();
+			break;
+		}
+		case LIST_ALL_CONNECTED: {
+			showConnectedClients();
+			break;
+		}
+		default:
+			this.output.println(Response.UNKNOWN_COMMAND.getValue());
+			break;
 		}
 
 	}
 
 	public boolean clientIsConnect(String name) {
-		if (NAME_CONNECTED_CLIENTS.stream().filter(x -> name.equals(x.getNameClient())).count() > 0) {
+		if (NAME_CONNECTED_CLIENTS.stream().filter(x -> x.equals(name)).count() > 0) {
 			return true;
 		}
 		return false;
 	}
 
-	public void addNewConnectedClient(ServerClientManagement client) {
-		NAME_CONNECTED_CLIENTS.add(client);
-		System.out.println("S - Novo cliente conectado: " + client.getNameClient().toString());
+	public void sendDirect(String name, String message) {
+		CONNECTED_CLIENTS.get(name).println(this.nameClient + " escreveu: " + message + "\\r\\n");
 	}
 
-	public void removeConnectedClient(ServerClientManagement client) {
-		NAME_CONNECTED_CLIENTS.remove(client);
-		System.out.println("S - Cliente desconectado ->" + client.getNameClient().toString());
-	}
-
-	public void sendDirect(ServerClientManagement serverClient, String name, String message) {
-		Optional<ServerClientManagement> clientToSend = NAME_CONNECTED_CLIENTS.stream()
-				.filter(x -> x.getNameClient().equals(name.toUpperCase())).findAny();
-
-		if (clientToSend.isPresent())
-			clientToSend.get().getOutput().print(serverClient.getNameClient() + " escreveu: " + message + "/n");
-		else
-			serverClient.getOutput().println(Response.NOT_FOUND_CONNECTED_USER.getValue());
-	}
-
-	public void sendToAll(ServerClientManagement serverClient, String message) {
-		NAME_CONNECTED_CLIENTS.forEach(x -> {
-			if (!x.getNameClient().equals(serverClient.getNameClient()))
-				x.getOutput().println(serverClient.getNameClient() + " escreveu: " + message + "/n");
+	public void sendToAll(String message) {
+		CONNECTED_CLIENTS.entrySet().forEach(x -> {
+			if (!x.getKey().equals(this.nameClient))
+				x.getValue().println(this.nameClient + " escreveu: " + message + "\\r\\n");
 		});
 
 	}
 
-	public void showConnectedClients(ServerClientManagement serverClient) {
-		serverClient.getOutput().println("S - Pessoas conectadas: " + getConnectedClients().toString());
+	public void showConnectedClients() {
+		this.output.println("S - Pessoas conectadas: " + NAME_CONNECTED_CLIENTS.toString());
 	}
 
-	public Set<ServerClientManagement> getConnectedClients() {
-		return NAME_CONNECTED_CLIENTS;
+	public void removeConnectedClient() {
+		NAME_CONNECTED_CLIENTS.remove(this.nameClient);
+		CONNECTED_CLIENTS.remove(this.nameClient);
+		System.out.println("S - Cliente desconectado: " + this.nameClient.toString());
 	}
 
-	public void closeConnection() {
+	public void closeClientConnection() {
 		try {
-			getConnectedClients().forEach(x -> {
-				x.CloseConnection();
-			});
-			this.serverSocket.close();
-			System.out.println("S - Conexao finalizada...");
-		} catch (Exception e) {
-			System.out.println("S - O seguinte problema ocorreu : " + e.toString());
+			removeConnectedClient();
+			this.output.println("S - Conexão encerrada");
+			this.connectionClient.close();
+		} catch (IOException e) {
+			System.out.println("S - O seguinte problema ocorreu : \n" + e.toString());
 		}
+
 	}
 
 }

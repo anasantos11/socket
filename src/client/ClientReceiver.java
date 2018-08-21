@@ -3,31 +3,27 @@ package client;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.PrintStream;
 import java.net.Socket;
 
-public class ClientManagement extends Thread {
+public class ClientReceiver extends Thread {
 	private Socket socketCli;
-	private PrintStream output;
 	private BufferedReader input;
-	private BufferedReader keyboard;
 	private String text;
 
-	public ClientManagement(Socket socketCli) throws IOException {
+	public ClientReceiver(Socket socketCli) throws IOException {
 		this.socketCli = socketCli;
 	}
 
 	@Override
 	public void run() {
 		try {
-
-			this.keyboard = new BufferedReader(new InputStreamReader(System.in));
 			this.input = new BufferedReader(new InputStreamReader(this.socketCli.getInputStream()));
-			this.output = new PrintStream(this.socketCli.getOutputStream());
-
 			while (true)
             {
 				this.text  = input.readLine();
+				if (this.text == null) {
+					System.exit(0);
+				}
                 System.out.println(this.text);
             }
 

@@ -16,16 +16,17 @@ public class Client {
 	private BufferedReader input;
 	private PrintStream output;
 	private BufferedReader keyboard;
-	private ClientManagement thread;
+	private ClientReceiver thread;
 	private String text;
 
 	public Client(String ipServer, int port) throws UnknownHostException, IOException {
 		this.socketCli = SocketFactory.getDefault().createSocket(ipServer, port);
-		this.keyboard = new BufferedReader(new InputStreamReader(System.in));
+
 	}
 
 	public void connect() {
 		try {
+			this.keyboard = new BufferedReader(new InputStreamReader(System.in));
 			this.output = new PrintStream(this.socketCli.getOutputStream());
 			this.input = new BufferedReader(new InputStreamReader(this.socketCli.getInputStream()));
 
@@ -40,11 +41,14 @@ public class Client {
 				System.exit(0);
 			} else {
 				System.out.println(response.getValue());
-				this.thread = new ClientManagement(this.socketCli);
+				this.thread = new ClientReceiver(this.socketCli);
 				this.thread.start();
-				
+
 				while (true) {
 					this.text = this.keyboard.readLine();
+					if (this.text == null) {
+						System.exit(0);
+					}
 					this.output.println(this.text);
 				}
 			}
