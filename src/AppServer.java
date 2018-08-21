@@ -1,8 +1,6 @@
 import java.net.ServerSocket;
 import java.net.Socket;
 
-import server.Server;
-
 public class AppServer {
 	private static ServerSocket serverSocket;
 

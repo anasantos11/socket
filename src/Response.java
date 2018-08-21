@@ -1,4 +1,4 @@
-package server;
+
 
 public enum Response {
 	ERROR_NAME_IN_USE("S - Este nome já está em uso"), CONNECTED_SUCCESS(

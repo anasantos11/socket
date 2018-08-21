@@ -1,4 +1,4 @@
-package server;
+
 
 public enum Command {
 	CONNECT("connect"), DIRECT_MESSAGE("direct_message"), MESSAGE_FOR_ALL("message_for_all"), DISCONNECT(
