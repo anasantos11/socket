@@ -1,5 +1,4 @@
 
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -31,7 +30,18 @@ public class Server extends Thread {
 			this.input = new BufferedReader(new InputStreamReader(this.connectionClient.getInputStream()));
 			this.output = new PrintStream(this.connectionClient.getOutputStream());
 
-			this.nameClient = input.readLine().toUpperCase();
+			String text = input.readLine().toUpperCase();
+
+			String[] split = text.split(":", 2);
+
+			if (split.length == 0 || split.length == 1
+					|| Command.getCommand(split[0]) != Command.CONNECT) {
+				this.output.println(Response.ERROR_CONNECTION.getValue());
+				this.connectionClient.close();
+				return;
+			}
+			this.nameClient = split[1];
+
 			if (clientIsConnect(this.nameClient)) {
 				this.output.println(Response.ERROR_NAME_IN_USE.getValue());
 				closeClientConnection();
@@ -47,7 +57,8 @@ public class Server extends Thread {
 			}
 
 		} catch (Exception e) {
-			System.out.println("S - O seguinte problema ocorreu : \n" + e.toString());
+			closeClientConnection();
+			
 		}
 	}
 
@@ -75,7 +86,7 @@ public class Server extends Thread {
 			System.out.println("conectado " + message);
 			break;
 		}
-		case DIRECT_MESSAGE: {
+		case MESSAGE_DIRECT: {
 			split = message.split(":", 2);
 			if (split.length == 0) {
 				this.output.println(Response.NOT_INFORMED_USER_TO_SEND_MESSAGE.getValue());
@@ -102,6 +113,7 @@ public class Server extends Thread {
 			break;
 		}
 		case DISCONNECT: {
+			removeConnectedClient();
 			closeClientConnection();
 			break;
 		}
@@ -147,9 +159,8 @@ public class Server extends Thread {
 
 	public void closeClientConnection() {
 		try {
-			removeConnectedClient();
-			this.output.println("S - Conexão encerrada");
 			this.connectionClient.close();
+			this.output.println("S - Conexão encerrada");
 		} catch (IOException e) {
 			System.out.println("S - O seguinte problema ocorreu : \n" + e.toString());
 		}

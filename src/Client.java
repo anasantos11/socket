@@ -28,7 +28,7 @@ public class Client {
 			this.output = new PrintStream(this.socketCli.getOutputStream());
 			this.input = new BufferedReader(new InputStreamReader(this.socketCli.getInputStream()));
 
-			System.out.println("Digite seu nome: ");
+			System.out.println("Conecte-se ao servidor");
 			this.text = this.keyboard.readLine();
 			this.output.println(this.text.toUpperCase());
 
