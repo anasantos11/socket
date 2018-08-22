@@ -136,13 +136,13 @@ public class Server extends Thread {
 	}
 
 	public void sendDirect(String name, String message) {
-		CONNECTED_CLIENTS.get(name).println(this.nameClient + " escreveu: " + message + "\\r\\n");
+		CONNECTED_CLIENTS.get(name).println(this.nameClient + " escreveu: " + message);
 	}
 
 	public void sendToAll(String message) {
 		CONNECTED_CLIENTS.entrySet().forEach(x -> {
 			if (!x.getKey().equals(this.nameClient))
-				x.getValue().println(this.nameClient + " escreveu: " + message + "\\r\\n");
+				x.getValue().println(this.nameClient + " escreveu: " + message);
 		});
 
 	}

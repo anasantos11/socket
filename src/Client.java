@@ -51,7 +51,7 @@ public class Client {
 				}
 			}
 		} catch (Exception e) {
-			System.out.println(" -C- O seguinte problema ocorreu : \n" + e.toString());
+			System.out.println(" -C- O seguinte problema ocorreu : \r\n" + e.toString());
 		}
 	}
 
